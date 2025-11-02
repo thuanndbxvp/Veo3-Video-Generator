@@ -1,24 +1,24 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-// Fix: Remove redundant global declaration for window.aistudio to avoid type conflicts.
-
-export const getGeminiAI = () => {
-    if (!process.env.API_KEY) {
+export const getGeminiAI = (apiKey?: string) => {
+    if (!apiKey) {
         throw new Error("API key not found. Please select an API key in the settings.");
     }
-    return new GoogleGenAI({ apiKey: process.env.API_KEY });
+    return new GoogleGenAI({ apiKey });
 };
 
 export const generateVideo = async (
+    apiKey: string | undefined,
     prompt: string,
     aspectRatio: '16:9' | '9:16',
+    model: string,
     updateProgress: (progress: number) => void
 ) => {
-    const ai = getGeminiAI();
+    const ai = getGeminiAI(apiKey);
     
     let operation = await ai.models.generateVideos({
-        model: 'veo-3.1-fast-generate-preview',
+        model: model,
         prompt,
         config: {
             numberOfVideos: 1,

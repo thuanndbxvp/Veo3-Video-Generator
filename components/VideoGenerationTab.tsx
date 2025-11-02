@@ -11,10 +11,18 @@ import { TrashIcon } from './icons/TrashIcon';
 import { DownloadIcon } from './icons/DownloadIcon';
 import { RetryIcon } from './icons/RetryIcon';
 
+const models = [
+    { id: 'veo-3.1-fast-generate-preview', name: 'Veo 3.1 - Fast', audio: 'Beta Audio' },
+    { id: 'veo-3.1-generate-preview', name: 'Veo 3.1 - Quality', audio: 'Beta Audio' },
+    { id: 'veo-2-fast-generate-preview', name: 'Veo 2 - Fast', audio: 'No Audio' },
+    { id: 'veo-2-generate-preview', name: 'Veo 2 - Quality', audio: 'No Audio' },
+];
+
 const VideoGenerationTab: React.FC = () => {
-    const { jobs, setJobs, addLog, setIsApiKeySelected } = useAppContext();
+    const { jobs, setJobs, addLog, setIsApiKeySelected, settings } = useAppContext();
     const [prompts, setPrompts] = useState('');
     const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>('16:9');
+    const [selectedModel, setSelectedModel] = useState(models[0].id);
     const [isGenerating, setIsGenerating] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -50,6 +58,9 @@ const VideoGenerationTab: React.FC = () => {
         
         setJobs(prev => [...newJobs, ...prev]);
 
+        const apiKey = settings.apiTokens?.[0] || process.env.API_KEY;
+        let completedCount = 0;
+
         for (const job of newJobs) {
             setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: 'in-progress' } : j));
             addLog(`Video #${newJobs.indexOf(job) + 1} -> IN_PROGRESS, starting process`, 'info');
@@ -58,12 +69,13 @@ const VideoGenerationTab: React.FC = () => {
                      setJobs(prev => prev.map(j => j.id === job.id ? { ...j, progress } : j));
                 };
 
-                const operation = await generateVideo(job.prompt, aspectRatio, updateProgress);
+                const operation = await generateVideo(apiKey, job.prompt, aspectRatio, selectedModel, updateProgress);
                 const videoUrl = operation.response?.generatedVideos?.[0]?.video?.uri;
 
                 if(videoUrl) {
                     setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: 'completed', operation, videoUrl, progress: 100 } : j));
                     addLog(`Video #${newJobs.indexOf(job) + 1} -> COMPLETED successfully.`, 'success');
+                    completedCount++;
                 } else {
                     throw new Error("Video URI not found in API response.");
                 }
@@ -77,11 +89,22 @@ const VideoGenerationTab: React.FC = () => {
                     addLog("API key error detected. Please re-select your API key.", "error");
                     break; 
                 }
+                if (errorMessage.includes("API key not found")) {
+                    const remainingJobIds = newJobs.slice(newJobs.indexOf(job) + 1).map(j => j.id);
+                    setJobs(prev => prev.map(j => {
+                        if (remainingJobIds.includes(j.id)) {
+                            return { ...j, status: 'failed', error: errorMessage };
+                        }
+                        return j;
+                    }));
+                    addLog("Stopping batch due to missing API key.", "error");
+                    break;
+                }
             }
         }
-        addLog(`Resilient batch result: ${promptList.length}/${promptList.length} videos successful`, 'success'); // This is optimistic, needs better logic
+        addLog(`Resilient batch result: ${completedCount}/${promptList.length} videos successful`, 'success');
         setIsGenerating(false);
-    }, [prompts, setJobs, addLog, aspectRatio, setIsApiKeySelected]);
+    }, [prompts, setJobs, addLog, aspectRatio, selectedModel, setIsApiKeySelected, settings]);
 
     const deleteAllJobs = () => {
         setJobs([]);
@@ -129,25 +152,48 @@ A dog running on the beach
                 </button>
                 <input type="file" accept=".txt" ref={fileInputRef} onChange={handleFilePromptUpload} className="hidden" />
 
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                        <label className="block mb-1 text-brand-text-secondary">Tỉ lệ khung hình:</label>
-                        <select 
-                            value={aspectRatio}
-                            onChange={e => setAspectRatio(e.target.value as '16:9' | '9:16')}
-                            className="w-full bg-brand-bg border border-brand-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-primary"
-                            disabled={isGenerating}
-                        >
-                            <option value="16:9">16:9</option>
-                            <option value="9:16">9:16</option>
-                        </select>
+                <div>
+                    <label className="block mb-2 text-sm text-brand-text-secondary">Model:</label>
+                    <div className="space-y-2">
+                        {models.map((model) => (
+                            <div
+                                key={model.id}
+                                onClick={() => !isGenerating && setSelectedModel(model.id)}
+                                className={`flex items-center justify-between p-2 rounded-md cursor-pointer transition-all ${
+                                    selectedModel === model.id ? 'bg-brand-primary bg-opacity-20 border-brand-primary' : 'bg-brand-bg hover:bg-brand-border'
+                                } ${isGenerating ? 'cursor-not-allowed opacity-60' : ''}`}
+                            >
+                                <div className="flex items-center gap-3">
+                                     <input
+                                        type="radio"
+                                        name="model"
+                                        value={model.id}
+                                        checked={selectedModel === model.id}
+                                        onChange={() => setSelectedModel(model.id)}
+                                        className="w-4 h-4 text-brand-primary bg-brand-bg border-brand-border focus:ring-brand-primary"
+                                        disabled={isGenerating}
+                                    />
+                                    <span className="text-sm">{model.name}</span>
+                                </div>
+                                <span className={`text-xs px-2 py-0.5 rounded-full ${model.audio.includes('Beta') ? 'bg-blue-500 text-white' : 'bg-gray-600 text-gray-200'}`}>
+                                    {model.audio}
+                                </span>
+                            </div>
+                        ))}
                     </div>
-                     <div>
-                        <label className="block mb-1 text-brand-text-secondary">Model:</label>
-                        <select className="w-full bg-brand-bg border border-brand-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-primary" disabled={isGenerating}>
-                            <option>3.1</option>
-                        </select>
-                    </div>
+                </div>
+
+                <div>
+                    <label className="block mb-1 text-sm text-brand-text-secondary">Tỉ lệ khung hình:</label>
+                    <select 
+                        value={aspectRatio}
+                        onChange={e => setAspectRatio(e.target.value as '16:9' | '9:16')}
+                        className="w-full bg-brand-bg border border-brand-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-primary text-sm"
+                        disabled={isGenerating}
+                    >
+                        <option value="16:9">16:9</option>
+                        <option value="9:16">9:16</option>
+                    </select>
                 </div>
 
                 <div className="flex items-center gap-2 text-sm">
