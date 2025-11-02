@@ -19,12 +19,14 @@ const models = [
 ];
 
 const VideoGenerationTab: React.FC = () => {
-    const { jobs, setJobs, addLog, isApiKeySelected, setIsApiKeySelected } = useAppContext();
+    const { jobs, setJobs, addLog, settings, isApiKeySelected, setIsApiKeySelected } = useAppContext();
     const [prompts, setPrompts] = useState('');
     const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>('16:9');
     const [selectedModel, setSelectedModel] = useState(models[0].id);
     const [isGenerating, setIsGenerating] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const hasApiKey = isApiKeySelected || !!settings.manualApiKey;
 
     const handleFilePromptUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -39,6 +41,12 @@ const VideoGenerationTab: React.FC = () => {
     };
     
     const startGenerationProcess = useCallback(async () => {
+        const apiKey = settings.manualApiKey || process.env.API_KEY;
+        if (!apiKey) {
+            addLog("API Key is missing. Please configure it in the Settings tab.", "error");
+            return;
+        }
+
         const promptList = prompts.split('\n').map(p => p.trim()).filter(p => p.length > 0);
         if (promptList.length === 0) {
             addLog('Please enter at least one prompt.', 'warning');
@@ -68,7 +76,7 @@ const VideoGenerationTab: React.FC = () => {
                      setJobs(prev => prev.map(j => j.id === job.id ? { ...j, progress } : j));
                 };
 
-                const operation = await generateVideo(job.prompt, aspectRatio, selectedModel, updateProgress);
+                const operation = await generateVideo(job.prompt, aspectRatio, selectedModel, updateProgress, apiKey);
                 const videoUrl = operation.response?.generatedVideos?.[0]?.video?.uri;
 
                 if(videoUrl) {
@@ -84,7 +92,6 @@ const VideoGenerationTab: React.FC = () => {
                 setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: 'failed', error: errorMessage, progress: 0 } : j));
                 addLog(`Video #${newJobs.indexOf(job) + 1} -> FAILED: ${errorMessage}`, 'error');
                 
-                // Check for auth-related errors to prompt for key re-selection
                 if (errorMessage.includes("Authentication Error") || errorMessage.includes("Operation not found")) {
                     setIsApiKeySelected(false);
                     addLog("Authentication error detected. Please go to Settings to re-select your project API key.", "error");
@@ -106,7 +113,7 @@ const VideoGenerationTab: React.FC = () => {
         }
         addLog(`Resilient batch result: ${completedCount}/${promptList.length} videos successful`, 'success');
         setIsGenerating(false);
-    }, [prompts, setJobs, addLog, aspectRatio, selectedModel, setIsApiKeySelected]);
+    }, [prompts, setJobs, addLog, aspectRatio, selectedModel, setIsApiKeySelected, settings.manualApiKey]);
 
     const deleteAllJobs = () => {
         setJobs([]);
@@ -207,7 +214,7 @@ A dog running on the beach
                     <div className="flex items-center gap-4">
                         <button
                             onClick={startGenerationProcess}
-                            disabled={isGenerating || pendingPrompts === 0 || !isApiKeySelected}
+                            disabled={isGenerating || pendingPrompts === 0 || !hasApiKey}
                             className="flex-1 bg-brand-primary text-white font-bold py-2.5 rounded-md flex items-center justify-center gap-2 hover:bg-brand-primary-hover transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed"
                         >
                             <PlayIcon className="w-5 h-5" /> Bắt đầu tạo video
@@ -219,9 +226,9 @@ A dog running on the beach
                             <StopIcon className="w-5 h-5" /> Dừng lại
                         </button>
                     </div>
-                     {!isApiKeySelected && (
+                     {!hasApiKey && (
                         <p className="text-center text-sm text-red-400 mt-2">
-                            Please select an API Key in the <strong>Cài đặt</strong> tab to begin.
+                            Please provide an API Key in the <strong>Cài đặt</strong> tab to begin.
                         </p>
                     )}
                 </div>

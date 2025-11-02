@@ -22,6 +22,7 @@ export interface Settings {
     autoDownload: boolean;
     fileNamePrefix: string;
     geminiApiKeyStatus: 'valid' | 'invalid' | 'unchecked';
+    manualApiKey?: string;
 }
 
 // Fix: Moved the AIStudio interface into the `declare global` block to resolve a type conflict

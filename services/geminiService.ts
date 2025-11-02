@@ -1,23 +1,22 @@
 
 import { GoogleGenAI } from '@google/genai';
 
-const getGenAIClient = () => {
-    // The API key is injected by the environment after user selection.
-    if (!process.env.API_KEY) {
-        throw new Error("API key not found. Please select a project in the Settings tab.");
+const getGenAIClient = (apiKey: string) => {
+    if (!apiKey) {
+        throw new Error("API key not found. Please configure an API key in the Settings tab.");
     }
-    // Create a new client for each request to ensure the latest key is used.
-    return new GoogleGenAI({ apiKey: process.env.API_KEY });
+    return new GoogleGenAI({ apiKey });
 };
 
 export const generateVideo = async (
     prompt: string,
     aspectRatio: '16:9' | '9:16',
     model: string,
-    updateProgress: (progress: number) => void
+    updateProgress: (progress: number) => void,
+    apiKey: string,
 ) => {
     try {
-        const ai = getGenAIClient();
+        const ai = getGenAIClient(apiKey);
         updateProgress(5);
 
         let operation = await ai.models.generateVideos({
@@ -37,7 +36,7 @@ export const generateVideo = async (
         while (!operation.done) {
             await new Promise(resolve => setTimeout(resolve, 5000));
             
-            const pollingAi = getGenAIClient(); 
+            const pollingAi = getGenAIClient(apiKey); 
             operation = await pollingAi.operations.getVideosOperation({ operation: operation });
 
             if (operation.error) {

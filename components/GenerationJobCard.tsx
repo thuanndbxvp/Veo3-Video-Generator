@@ -10,17 +10,18 @@ interface GenerationJobCardProps {
 }
 
 const GenerationJobCard: React.FC<GenerationJobCardProps> = ({ job, index }) => {
-    const { setJobs, settings } = useAppContext();
+    const { settings, setJobs } = useAppContext();
+    const apiKey = settings.manualApiKey || process.env.API_KEY;
 
     const deleteJob = () => {
         setJobs(prev => prev.filter(j => j.id !== job.id));
     };
     
     const downloadVideo = async () => {
-        if (!job.videoUrl || !process.env.API_KEY) return;
+        if (!job.videoUrl || !apiKey) return;
         
         try {
-            const response = await fetch(`${job.videoUrl}&key=${process.env.API_KEY}`);
+            const response = await fetch(`${job.videoUrl}&key=${apiKey}`);
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -56,7 +57,7 @@ const GenerationJobCard: React.FC<GenerationJobCardProps> = ({ job, index }) => 
             case 'completed':
                 return (
                      <div className="relative group w-full h-full">
-                        <video src={`${job.videoUrl}&key=${process.env.API_KEY}`} className="w-full h-full object-cover rounded-md" controls />
+                        <video src={`${job.videoUrl}&key=${apiKey}`} className="w-full h-full object-cover rounded-md" controls />
                         <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                              <button
                                 onClick={downloadVideo}

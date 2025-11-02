@@ -24,6 +24,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         autoDownload: true,
         fileNamePrefix: 'video',
         geminiApiKeyStatus: 'unchecked',
+        manualApiKey: '',
     });
     const [isApiKeySelected, setIsApiKeySelected] = useState(false);
 
