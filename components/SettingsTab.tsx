@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { TrashIcon } from './icons/TrashIcon';
@@ -6,7 +5,7 @@ import { TrashIcon } from './icons/TrashIcon';
 // Fix: Remove redundant global declaration for window.aistudio to avoid type conflicts.
 
 const SettingsTab: React.FC = () => {
-    const { settings, setSettings, addLog, setIsApiKeySelected } = useAppContext();
+    const { settings, setSettings, addLog, isApiKeySelected, setIsApiKeySelected } = useAppContext();
     const [showKey, setShowKey] = useState(false);
 
     const handleResetApp = () => {
@@ -45,14 +44,18 @@ const SettingsTab: React.FC = () => {
                         <div className="flex items-center gap-2 mt-1">
                             <input
                                 type={showKey ? "text" : "password"}
-                                value={process.env.API_KEY || "key_not_found_select_project"}
+                                value={process.env.API_KEY || "No project selected"}
                                 readOnly
                                 className="w-full bg-brand-bg border border-brand-border rounded-md px-3 py-2 text-sm"
                             />
                             <button onClick={() => setShowKey(!showKey)} className="p-2 bg-brand-border rounded-md hover:bg-opacity-80">👁️</button>
-                            <button onClick={handleSelectKey} className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-primary-hover text-sm">Lưu</button>
+                            <button onClick={handleSelectKey} className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-primary-hover text-sm">Select Project</button>
                         </div>
-                         <p className="text-xs text-green-400 mt-1">✓ Đã có</p>
+                         {isApiKeySelected ? (
+                            <p className="text-xs text-green-400 mt-1">✓ API Key is selected and ready to use.</p>
+                        ) : (
+                            <p className="text-xs text-red-400 mt-1">✗ No API Key selected. Please select a project to enable video generation.</p>
+                        )}
                     </div>
                 </div>
             </div>

@@ -19,7 +19,7 @@ const models = [
 ];
 
 const VideoGenerationTab: React.FC = () => {
-    const { jobs, setJobs, addLog, setIsApiKeySelected } = useAppContext();
+    const { jobs, setJobs, addLog, isApiKeySelected, setIsApiKeySelected } = useAppContext();
     const [prompts, setPrompts] = useState('');
     const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>('16:9');
     const [selectedModel, setSelectedModel] = useState(models[0].id);
@@ -203,20 +203,27 @@ A dog running on the beach
                     <label htmlFor="auto-upscale">Auto Upscale</label>
                 </div>
 
-                <div className="flex items-center gap-4">
-                    <button 
-                        onClick={startGenerationProcess}
-                        disabled={isGenerating || pendingPrompts === 0}
-                        className="flex-1 bg-brand-primary text-white font-bold py-2.5 rounded-md flex items-center justify-center gap-2 hover:bg-brand-primary-hover transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed"
-                    >
-                        <PlayIcon className="w-5 h-5" /> Bắt đầu tạo video
-                    </button>
-                    <button 
-                        disabled={!isGenerating}
-                        className="flex-1 bg-brand-border text-brand-text py-2.5 rounded-md flex items-center justify-center gap-2 hover:bg-opacity-80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        <StopIcon className="w-5 h-5" /> Dừng lại
-                    </button>
+                <div className="flex flex-col">
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={startGenerationProcess}
+                            disabled={isGenerating || pendingPrompts === 0 || !isApiKeySelected}
+                            className="flex-1 bg-brand-primary text-white font-bold py-2.5 rounded-md flex items-center justify-center gap-2 hover:bg-brand-primary-hover transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed"
+                        >
+                            <PlayIcon className="w-5 h-5" /> Bắt đầu tạo video
+                        </button>
+                        <button
+                            disabled={!isGenerating}
+                            className="flex-1 bg-brand-border text-brand-text py-2.5 rounded-md flex items-center justify-center gap-2 hover:bg-opacity-80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <StopIcon className="w-5 h-5" /> Dừng lại
+                        </button>
+                    </div>
+                     {!isApiKeySelected && (
+                        <p className="text-center text-sm text-red-400 mt-2">
+                            Please select an API Key in the <strong>Cài đặt</strong> tab to begin.
+                        </p>
+                    )}
                 </div>
             </div>
 
