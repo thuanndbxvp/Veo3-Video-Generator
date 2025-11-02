@@ -19,7 +19,7 @@ const models = [
 ];
 
 const VideoGenerationTab: React.FC = () => {
-    const { jobs, setJobs, addLog, setIsApiKeySelected, settings } = useAppContext();
+    const { jobs, setJobs, addLog, setIsApiKeySelected } = useAppContext();
     const [prompts, setPrompts] = useState('');
     const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>('16:9');
     const [selectedModel, setSelectedModel] = useState(models[0].id);
@@ -58,7 +58,6 @@ const VideoGenerationTab: React.FC = () => {
         
         setJobs(prev => [...newJobs, ...prev]);
 
-        const apiKey = settings.apiTokens?.[0] || process.env.API_KEY;
         let completedCount = 0;
 
         for (const job of newJobs) {
@@ -69,7 +68,7 @@ const VideoGenerationTab: React.FC = () => {
                      setJobs(prev => prev.map(j => j.id === job.id ? { ...j, progress } : j));
                 };
 
-                const operation = await generateVideo(apiKey, job.prompt, aspectRatio, selectedModel, updateProgress);
+                const operation = await generateVideo(job.prompt, aspectRatio, selectedModel, updateProgress);
                 const videoUrl = operation.response?.generatedVideos?.[0]?.video?.uri;
 
                 if(videoUrl) {
@@ -84,27 +83,30 @@ const VideoGenerationTab: React.FC = () => {
                 const errorMessage = (error as Error).message;
                 setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: 'failed', error: errorMessage, progress: 0 } : j));
                 addLog(`Video #${newJobs.indexOf(job) + 1} -> FAILED: ${errorMessage}`, 'error');
-                if (errorMessage.includes("API key is invalid")) {
+                
+                // Check for auth-related errors to prompt for key re-selection
+                if (errorMessage.includes("Authentication Error") || errorMessage.includes("Operation not found")) {
                     setIsApiKeySelected(false);
-                    addLog("API key error detected. Please re-select your API key.", "error");
+                    addLog("Authentication error detected. Please go to Settings to re-select your project API key.", "error");
                     break; 
                 }
+                
                 if (errorMessage.includes("API key not found")) {
+                    addLog("Stopping batch: No API key is configured. Please select a project in the Settings tab.", "error");
                     const remainingJobIds = newJobs.slice(newJobs.indexOf(job) + 1).map(j => j.id);
-                    setJobs(prev => prev.map(j => {
+                     setJobs(prev => prev.map(j => {
                         if (remainingJobIds.includes(j.id)) {
-                            return { ...j, status: 'failed', error: errorMessage };
+                            return { ...j, status: 'failed', error: "Batch stopped due to missing API key." };
                         }
                         return j;
                     }));
-                    addLog("Stopping batch due to missing API key.", "error");
                     break;
                 }
             }
         }
         addLog(`Resilient batch result: ${completedCount}/${promptList.length} videos successful`, 'success');
         setIsGenerating(false);
-    }, [prompts, setJobs, addLog, aspectRatio, selectedModel, setIsApiKeySelected, settings]);
+    }, [prompts, setJobs, addLog, aspectRatio, selectedModel, setIsApiKeySelected]);
 
     const deleteAllJobs = () => {
         setJobs([]);
