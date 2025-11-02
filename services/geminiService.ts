@@ -18,7 +18,6 @@ export const generateVideo = async (
     const headers: HeadersInit = { 'Content-Type': 'application/json' };
     let generateUrl = `${VEO_API_BASE_URL}/v1beta/models/${model}:generateVideos`;
 
-    // Use the correct authentication method based on the credential type
     if (isOAuthToken(apiKeyOrToken)) {
         headers['Authorization'] = `Bearer ${apiKeyOrToken}`;
     } else {
@@ -34,19 +33,25 @@ export const generateVideo = async (
         }
     });
 
-    const initialResponse = await fetch(generateUrl, { method: 'POST', headers, body });
+    let initialResponse;
+    try {
+        initialResponse = await fetch(generateUrl, { method: 'POST', headers, body });
+    } catch (networkError) {
+        console.error("Initial request failed:", networkError);
+        throw new Error("Network Error: Could not connect to Google API. Check your internet connection, ad blockers, and browser console for CORS errors.");
+    }
 
     if (!initialResponse.ok) {
-        const errorBody = await initialResponse.json();
+        const errorBody = await initialResponse.json().catch(() => ({ error: { message: 'Failed to parse error response from server.' } }));
         console.error("Error starting video generation:", errorBody);
         const errorMessage = errorBody.error?.message || 'Failed to start video generation.';
         if (initialResponse.status === 401 || initialResponse.status === 403) {
-            throw new Error(`Authentication failed. The provided token or key may be invalid or expired. Details: ${errorMessage}`);
+            throw new Error(`Authentication failed. The provided token or key may be invalid, expired, or lack permissions. Details: ${errorMessage}`);
         }
         if (initialResponse.status === 400 && errorMessage.includes("API key not valid")) {
-             throw new Error(`Authentication failed: ${errorMessage}. If using an access token from Flow, it might be expired. If using an API key, ensure it's correct.`);
+             throw new Error(`Authentication failed: ${errorMessage}. If using an access token, it might be expired. If using an API key, ensure it's correct.`);
         }
-        throw new Error(JSON.stringify(errorBody));
+        throw new Error(`API Error (${initialResponse.status}): ${errorMessage}`);
     }
     
     let operation = await initialResponse.json();
@@ -69,7 +74,7 @@ export const generateVideo = async (
         try {
             const pollResponse = await fetch(pollUrl, { headers: pollHeaders });
             if (!pollResponse.ok) {
-                const errorBody = await pollResponse.json();
+                const errorBody = await pollResponse.json().catch(() => ({ error: { message: 'Failed to parse error response from polling.' } }));
                 console.error("Error polling for video operation:", errorBody);
                 throw new Error(errorBody.error?.message || 'Polling failed.');
             }
@@ -83,13 +88,13 @@ export const generateVideo = async (
                 progress += 5;
                 updateProgress(progress);
             }
-        } catch (error) {
-            console.error("Error polling for video operation:", error);
-            const errorMessage = (error as Error).message;
+        } catch (pollingError) {
+            console.error("Error during polling:", pollingError);
+            const errorMessage = (pollingError as Error).message;
              if (errorMessage.includes("Requested entity was not found")) {
                 throw new Error("Polling failed: Operation not found. This can happen with an invalid API key or permissions issue.");
             }
-            throw error;
+            throw new Error(`Polling request failed: ${errorMessage}`);
         }
     }
     
