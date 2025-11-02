@@ -1,0 +1,5 @@
+{
+  "name": "Veo Video Generator",
+  "description": "An application to automatically generate videos from text prompts using the Google Veo API. It includes features for managing generation jobs, and configuring settings.",
+  "requestFramePermissions": []
+}
